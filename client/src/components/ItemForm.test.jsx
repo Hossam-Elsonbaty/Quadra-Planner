@@ -1,0 +1,48 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import ItemForm from "./ItemForm.jsx";
+
+describe("ItemForm repeat choice", () => {
+  it("has no repeat selected by default and keeps Save disabled until a choice is made", () => {
+    render(
+      <ItemForm
+        open
+        item={{ date: "2027-03-15" }}
+        types={[{ _id: "type-1", name: "Class", color: "#123456" }]}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Save item" })).toBeDisabled();
+    expect(screen.getByText("Choose a repeat option before saving.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("This date only"));
+    expect(screen.getByRole("button", { name: "Save item" })).toBeEnabled();
+  });
+
+  it("rejects an end time before the selected start time", async () => {
+    const onSave = vi.fn();
+    render(
+      <ItemForm
+        open
+        item={{ date: "2027-03-15" }}
+        types={[{ _id: "type-1", name: "Class", color: "#123456" }]}
+        onCancel={vi.fn()}
+        onSave={onSave}
+        onDelete={vi.fn()}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Morning class" } });
+    fireEvent.change(screen.getByLabelText("Type"), { target: { value: "type-1" } });
+    fireEvent.change(screen.getByLabelText("Start time"), { target: { value: "09:00" } });
+    fireEvent.change(screen.getByLabelText("End time Optional"), { target: { value: "08:00" } });
+    fireEvent.click(screen.getByLabelText("This date only"));
+    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
+
+    expect(await screen.findByText("End time must be after the start time.")).toBeInTheDocument();
+    await waitFor(() => expect(onSave).not.toHaveBeenCalled());
+  });
+});
