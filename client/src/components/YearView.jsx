@@ -1,4 +1,4 @@
-import { eachDayOfInterval, endOfMonth, format, startOfMonth } from "date-fns";
+import { eachDayOfInterval, endOfMonth, format, isToday, startOfMonth } from "date-fns";
 
 export default function YearView({ year, occurrences, onOpenDay, onOpenMonth }) {
   return (
@@ -25,14 +25,16 @@ export default function YearView({ year, occurrences, onOpenDay, onOpenMonth }) 
               {Array.from({ length: offset }, (_, index) => <span key={`blank-${index}`} />)}
               {days.map((date) => {
                 const key = format(date, "yyyy-MM-dd");
-                const hasItems = occurrences.some((item) => item.occurrenceDate === key);
+                const dayItems = occurrences.filter((item) => item.occurrenceDate === key);
+                const hasItems = dayItems.length > 0;
                 return (
                   <button
-                    className={`year-day${hasItems ? " has-items" : ""}`}
+                    className={`year-day${hasItems ? " has-items" : ""}${isToday(date) ? " is-today" : ""}`}
                     type="button"
                     key={key}
                     onClick={() => onOpenDay(key)}
                     aria-label={`${format(date, "MMMM d")}${hasItems ? ", has items" : ""}`}
+                    title={dayItems.map((item) => item.title).join("\n") || undefined}
                   >
                     {format(date, "d")}
                     {hasItems && <span className="year-dot" />}

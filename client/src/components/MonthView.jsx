@@ -1,5 +1,5 @@
 import { Button, Card } from "antd";
-import { eachDayOfInterval, endOfWeek, format, parseISO, startOfWeek } from "date-fns";
+import { eachDayOfInterval, endOfWeek, format, isToday, parseISO, startOfWeek } from "date-fns";
 
 export default function MonthView({ range, occurrences, typesById, onAdd, onEdit, onOpenDay, onOpenMonth }) {
   const monthStart = parseISO(range.start);
@@ -22,7 +22,7 @@ export default function MonthView({ range, occurrences, typesById, onAdd, onEdit
         return (
           <Card
             key={key}
-            className={`month-cell${inCurrentMonth ? "" : " outside-month"}`}
+            className={`month-cell${inCurrentMonth ? "" : " outside-month"}${isToday(date) ? " is-today" : ""}`}
             onClick={() => inCurrentMonth ? onOpenDay(key) : onOpenMonth(date)}
           >
             <button
@@ -46,7 +46,7 @@ export default function MonthView({ range, occurrences, typesById, onAdd, onEdit
                     event.stopPropagation();
                     onEdit(item);
                   }}
-                  title={`${item.startTime} ${item.title}`}
+                  title={item.title}
                 >
                   <span
                     className="item-marker"

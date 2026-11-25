@@ -1,12 +1,12 @@
 import { Button } from "antd";
 import { AnimatePresence } from "framer-motion";
 import { Plus } from "lucide-react";
-import { format } from "date-fns";
+import { format, isToday } from "date-fns";
 import ItemCard from "./ItemCard.jsx";
 
 export default function DayColumn({ date, items, typesById, onAdd, onEdit, onToggleDone }) {
   return (
-    <section className="day-column" aria-label={format(date, "EEEE, MMMM d")}>
+    <section className={`day-column${isToday(date) ? " is-today" : ""}`} aria-label={format(date, "EEEE, MMMM d")}>
       <header className="day-heading">
         <div>
           <span className="day-name">{format(date, "EEEE")}</span>

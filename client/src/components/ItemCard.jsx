@@ -10,6 +10,7 @@ export default function ItemCard({ item, type, onEdit, onToggleDone }) {
   return (
     <motion.div
       className="item-entry"
+      title={item.title}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

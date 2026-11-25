@@ -199,6 +199,10 @@ a:hover {
   background: #fffefa;
 }
 
+.day-column.is-today {
+  border: 2px solid #647f6a;
+}
+
 .day-heading {
   display: flex;
   align-items: flex-start;
@@ -332,6 +336,10 @@ a:hover {
   border-radius: 4px;
   background: #fffefa;
   cursor: pointer;
+}
+
+.month-cell.is-today.ant-card {
+  border: 2px solid #647f6a;
 }
 
 .month-cell .ant-card-body {
@@ -474,6 +482,10 @@ a:hover {
 
 .year-day:hover {
   background: #efeee7;
+}
+
+.year-day.is-today {
+  border: 1px solid #647f6a;
 }
 
 .year-day.has-items {
