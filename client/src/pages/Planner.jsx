@@ -98,11 +98,20 @@ export default function Planner() {
     return itemsApi.list(range).then(({ data }) => setItems(data.items));
   }
 
-  async function saveItem(values) {
+  async function saveItem(values, scope) {
     setSaving(true);
     try {
-      if (activeItem?._id) await itemsApi.update(activeItem._id, values);
-      else await itemsApi.create(values);
+      if (activeItem?._id && scope === "occurrence") {
+        await itemsApi.updateOccurrence(
+          activeItem._id,
+          activeItem.sourceOccurrenceDate || activeItem.occurrenceDate,
+          values
+        );
+      } else if (activeItem?._id) {
+        await itemsApi.update(activeItem._id, values);
+      } else {
+        await itemsApi.create(values);
+      }
       toast.success(activeItem?._id ? "Item updated" : "Item added");
       setFormOpen(false);
       await reloadItems();
@@ -113,10 +122,17 @@ export default function Planner() {
     }
   }
 
-  async function deleteItem(item) {
+  async function deleteItem(item, scope) {
     try {
-      await itemsApi.remove(item._id);
-      toast.success("Item deleted");
+      if (scope === "occurrence") {
+        await itemsApi.removeOccurrence(
+          item._id,
+          item.sourceOccurrenceDate || item.occurrenceDate
+        );
+      } else {
+        await itemsApi.remove(item._id);
+      }
+      toast.success(scope === "occurrence" ? "Occurrence deleted" : "Item deleted");
       setFormOpen(false);
       await reloadItems();
     } catch (error) {
@@ -126,7 +142,10 @@ export default function Planner() {
 
   async function toggleDone(item) {
     try {
-      await itemsApi.toggleDone(item._id, item.occurrenceDate);
+      await itemsApi.toggleDone(
+        item._id,
+        item.sourceOccurrenceDate || item.occurrenceDate
+      );
       await reloadItems();
     } catch (error) {
       toast.error(error.response?.data?.message || "Could not update this item.");

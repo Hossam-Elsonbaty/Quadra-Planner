@@ -72,4 +72,77 @@ describe("repeat expansion", () => {
     );
     expect(occurrences.map(({ done }) => done)).toEqual([false, true]);
   });
+
+  it("moves and edits one occurrence without changing the series schedule", () => {
+    const occurrences = expandOccurrences(
+      [{
+        _id: "weekly",
+        title: "Original class",
+        date: "2027-03-15",
+        endDate: "2027-03-22",
+        repeat: "weekly",
+        doneDates: ["2027-03-15"],
+        exceptions: [{
+          occurrenceDate: "2027-03-15",
+          date: "2027-04-02",
+          title: "Rescheduled class",
+          startTime: "10:00",
+          cancelled: false,
+        }, {
+          occurrenceDate: "2027-03-22",
+          date: "2027-03-22",
+          cancelled: true,
+        }],
+      }],
+      { start: "2027-04-01", end: "2027-04-30" }
+    );
+
+    expect(occurrences).toHaveLength(1);
+    expect(occurrences[0]).toMatchObject({
+      title: "Rescheduled class",
+      date: "2027-04-02",
+      occurrenceDate: "2027-04-02",
+      sourceOccurrenceDate: "2027-03-15",
+      startTime: "10:00",
+      done: true,
+    });
+
+    const cancelledOccurrences = expandOccurrences(
+      [{
+        _id: "weekly",
+        date: "2027-03-15",
+        endDate: "2027-03-22",
+        repeat: "weekly",
+        exceptions: [{
+          occurrenceDate: "2027-03-22",
+          date: "2027-03-22",
+          cancelled: true,
+        }],
+      }],
+      { start: "2027-03-22", end: "2027-03-22" }
+    );
+    expect(cancelledOccurrences).toEqual([]);
+  });
+
+  it("shows a moved occurrence even before the series starts", () => {
+    const occurrences = expandOccurrences(
+      [{
+        _id: "weekly",
+        title: "Later class",
+        date: "2027-04-15",
+        repeat: "weekly",
+        exceptions: [{
+          occurrenceDate: "2027-04-15",
+          date: "2027-04-01",
+          title: "Moved earlier",
+          cancelled: false,
+        }],
+      }],
+      { start: "2027-04-01", end: "2027-04-07" }
+    );
+
+    expect(occurrences.map(({ title, occurrenceDate }) => [title, occurrenceDate])).toEqual([
+      ["Moved earlier", "2027-04-01"],
+    ]);
+  });
 });

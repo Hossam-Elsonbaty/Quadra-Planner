@@ -83,6 +83,62 @@ describe("items", () => {
     expect(invalidDate.status).toBe(400);
   });
 
+  it("updates and deletes a single recurring occurrence", async () => {
+    const { token, typeId } = await createUserAndType("occurrence@example.com");
+    const created = await request(app)
+      .post("/api/items")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "Weekly class",
+        type: typeId,
+        date: "2027-03-15",
+        endDate: "2027-03-22",
+        startTime: "09:00",
+        repeat: "weekly",
+      });
+    const id = created.body.item._id;
+
+    const updated = await request(app)
+      .put(`/api/items/${id}/occurrences/2027-03-15`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "Rescheduled class",
+        type: typeId,
+        date: "2027-04-02",
+        startTime: "10:00",
+      });
+    expect(updated.status).toBe(200);
+    expect(updated.body.item.date).toBe("2027-03-15T00:00:00.000Z");
+    expect(updated.body.item.exceptions).toMatchObject([{
+      occurrenceDate: "2027-03-15",
+      date: "2027-04-02",
+      title: "Rescheduled class",
+      startTime: "10:00",
+      cancelled: false,
+    }]);
+
+    const movedOccurrence = await request(app)
+      .get("/api/items?from=2027-04-01&to=2027-04-30")
+      .set("Authorization", `Bearer ${token}`);
+    expect(movedOccurrence.body.items).toHaveLength(1);
+
+    const deleted = await request(app)
+      .delete(`/api/items/${id}/occurrences/2027-03-15`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(deleted.status).toBe(200);
+
+    const afterDelete = await request(app)
+      .get("/api/items?from=2027-04-01&to=2027-04-30")
+      .set("Authorization", `Bearer ${token}`);
+    expect(afterDelete.body.items).toHaveLength(0);
+
+    const deletedOccurrence = await request(app)
+      .patch(`/api/items/${id}/done`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ date: "2027-03-15" });
+    expect(deletedOccurrence.status).toBe(400);
+  });
+
   it("matches none, weekly, monthly and yearly recurrence including month-end and leap years", () => {
     expect(isOccurrenceOnDate({ date: "2027-03-15", repeat: "none" }, "2027-03-15")).toBe(true);
     expect(isOccurrenceOnDate({ date: "2027-03-15", repeat: "none" }, "2027-03-22")).toBe(false);

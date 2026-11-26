@@ -28,7 +28,9 @@ export const itemsApi = {
   list: (range) => api.get("/items", { params: range }),
   create: (values) => api.post("/items", values),
   update: (id, values) => api.put(`/items/${id}`, values),
+  updateOccurrence: (id, date, values) => api.put(`/items/${id}/occurrences/${date}`, values),
   remove: (id) => api.delete(`/items/${id}`),
+  removeOccurrence: (id, date) => api.delete(`/items/${id}/occurrences/${date}`),
   toggleDone: (id, date) => api.patch(`/items/${id}/done`, { date }),
 };
 

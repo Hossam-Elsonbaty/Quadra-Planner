@@ -1,5 +1,19 @@
 import mongoose from "mongoose";
 
+const occurrenceExceptionSchema = new mongoose.Schema(
+  {
+    occurrenceDate: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+    date: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+    cancelled: { type: Boolean, default: false },
+    title: { type: String, trim: true },
+    type: { type: mongoose.Schema.Types.ObjectId, ref: "Type" },
+    startTime: { type: String, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
+    endTime: { type: String, match: /^([01]\d|2[0-3]):[0-5]\d$/ },
+    notes: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
 const itemSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
@@ -19,6 +33,7 @@ const itemSchema = new mongoose.Schema(
     },
     endDate: { type: Date },
     doneDates: { type: [String], default: [] },
+    exceptions: { type: [occurrenceExceptionSchema], default: [] },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

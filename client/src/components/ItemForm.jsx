@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Modal, Radio } from "antd";
 import { AnimatePresence, motion } from "framer-motion";
 import { format, isValid, parseISO } from "date-fns";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
@@ -51,6 +51,7 @@ function toInputDate(value) {
 }
 
 export default function ItemForm({ open, item, types, onCancel, onSave, onDelete, saving }) {
+  const [editScope, setEditScope] = useState("series");
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm({
     resolver: zodResolver(itemSchema),
     defaultValues: {
@@ -65,28 +66,40 @@ export default function ItemForm({ open, item, types, onCancel, onSave, onDelete
     },
   });
   const repeat = useWatch({ control, name: "repeat" });
+  const isRecurringItem = Boolean(item?._id && item.repeat !== "none");
+  const isOccurrenceEdit = isRecurringItem && editScope === "occurrence";
 
   useEffect(() => {
+    setEditScope("series");
+  }, [item, open]);
+
+  useEffect(() => {
+    const source = editScope === "series" ? item?.seriesItem || item : item;
     reset({
-      title: item?.title || "",
-      type: item ? String(item.type?._id || item.type) : "",
-      date: toInputDate(item?.date),
-      startTime: item?.startTime || "",
-      endTime: item?.endTime || "",
-      repeat: item?.repeat || undefined,
-      endDate: toInputDate(item?.endDate),
-      notes: item?.notes || "",
+      title: source?.title || "",
+      type: source ? String(source.type?._id || source.type) : "",
+      date: toInputDate(
+        isOccurrenceEdit ? item?.occurrenceDate || item?.date : source?.date
+      ),
+      startTime: source?.startTime || "",
+      endTime: source?.endTime || "",
+      repeat: source?.repeat || undefined,
+      endDate: toInputDate(source?.endDate),
+      notes: source?.notes || "",
     });
-  }, [item, open, reset]);
+  }, [item, open, editScope, isOccurrenceEdit, reset]);
 
   function submit(values) {
     const payload = {
       ...values,
       endTime: values.endTime || undefined,
-      endDate: values.repeat === "none" ? undefined : values.endDate || undefined,
+      endDate: isOccurrenceEdit || values.repeat === "none" ? undefined : values.endDate || undefined,
       notes: values.notes?.trim() || undefined,
     };
-    onSave(payload);
+    if (isOccurrenceEdit) {
+      delete payload.repeat;
+    }
+    onSave(payload, isOccurrenceEdit ? "occurrence" : "series");
   }
 
   return (
@@ -107,6 +120,20 @@ export default function ItemForm({ open, item, types, onCancel, onSave, onDelete
             transition={{ duration: 0.15 }}
           >
             <form className="stack-form modal-form" onSubmit={handleSubmit(submit)} noValidate>
+              {isRecurringItem && (
+                <fieldset className="repeat-fieldset">
+                  <legend>Apply changes to</legend>
+                  <Radio.Group
+                    value={editScope}
+                    onChange={(event) => setEditScope(event.target.value)}
+                    className="repeat-options"
+                  >
+                    <Radio value="occurrence">This occurrence only</Radio>
+                    <Radio value="series">Entire series</Radio>
+                  </Radio.Group>
+                </fieldset>
+              )}
+
               <label htmlFor="item-title">Title</label>
               <input id="item-title" className="native-input" placeholder="What are you planning?" {...register("title")} />
               {errors.title && <span className="field-error">{errors.title.message}</span>}
@@ -135,31 +162,37 @@ export default function ItemForm({ open, item, types, onCancel, onSave, onDelete
               <input id="item-end-time" type="time" className="native-input" {...register("endTime")} />
               {errors.endTime && <span className="field-error">{errors.endTime.message}</span>}
 
-              <fieldset className="repeat-fieldset">
-                <legend>Repeat</legend>
-                <Controller
-                  control={control}
-                  name="repeat"
-                  render={({ field }) => (
-                    <Radio.Group {...field} className="repeat-options">
-                      <Radio value="none">This date only</Radio>
-                      <Radio value="weekly">Every week</Radio>
-                      <Radio value="monthly">Every month</Radio>
-                      <Radio value="yearly">Every year</Radio>
-                    </Radio.Group>
+              {isOccurrenceEdit ? (
+                <p className="repeat-hint">The repeat schedule is unchanged for this occurrence.</p>
+              ) : (
+                <>
+                  <fieldset className="repeat-fieldset">
+                    <legend>Repeat</legend>
+                    <Controller
+                      control={control}
+                      name="repeat"
+                      render={({ field }) => (
+                        <Radio.Group {...field} className="repeat-options">
+                          <Radio value="none">This date only</Radio>
+                          <Radio value="weekly">Every week</Radio>
+                          <Radio value="monthly">Every month</Radio>
+                          <Radio value="yearly">Every year</Radio>
+                        </Radio.Group>
+                      )}
+                    />
+                    {errors.repeat && <span className="field-error">{errors.repeat.message}</span>}
+                  </fieldset>
+
+                  {!repeat && <p className="repeat-hint">Choose a repeat option before saving.</p>}
+
+                  {repeat && repeat !== "none" && (
+                    <div>
+                      <label htmlFor="item-end-date">Ends on <span className="optional-label">Optional</span></label>
+                      <input id="item-end-date" type="date" className="native-input" {...register("endDate")} />
+                      {errors.endDate && <span className="field-error">{errors.endDate.message}</span>}
+                    </div>
                   )}
-                />
-                {errors.repeat && <span className="field-error">{errors.repeat.message}</span>}
-              </fieldset>
-
-              {!repeat && <p className="repeat-hint">Choose a repeat option before saving.</p>}
-
-              {repeat && repeat !== "none" && (
-                <div>
-                  <label htmlFor="item-end-date">Ends on <span className="optional-label">Optional</span></label>
-                  <input id="item-end-date" type="date" className="native-input" {...register("endDate")} />
-                  {errors.endDate && <span className="field-error">{errors.endDate.message}</span>}
-                </div>
+                </>
               )}
 
               <label htmlFor="item-notes">Notes <span className="optional-label">Optional</span></label>
@@ -168,8 +201,12 @@ export default function ItemForm({ open, item, types, onCancel, onSave, onDelete
 
               <div className="form-actions">
                 {item?._id && (
-                  <Button danger className="delete-item-button" onClick={() => onDelete(item)}>
-                    Delete
+                  <Button
+                    danger
+                    className="delete-item-button"
+                    onClick={() => onDelete(item, isOccurrenceEdit ? "occurrence" : "series")}
+                  >
+                    {isOccurrenceEdit ? "Delete occurrence" : isRecurringItem ? "Delete series" : "Delete"}
                   </Button>
                 )}
                 <Button onClick={onCancel}>Cancel</Button>

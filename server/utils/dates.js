@@ -11,6 +11,12 @@ function daysInMonth(year, month) {
 }
 
 export function isOccurrenceOnDate(item, occurrenceDate) {
+  if (item.exceptions?.some(
+    (exception) => exception.occurrenceDate === occurrenceDate && exception.cancelled
+  )) {
+    return false;
+  }
+
   const start = parseDateOnly(
     item.date instanceof Date ? item.date.toISOString().slice(0, 10) : item.date
   );

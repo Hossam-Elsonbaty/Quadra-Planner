@@ -70,19 +70,66 @@ export function expandOccurrences(items, range) {
   return items.flatMap((item) => {
     const itemStart = asDate(item.date);
     const visibleStart = itemStart > startDate ? itemStart : startDate;
-    if (item.endDate && asDate(item.endDate) < visibleStart) return [];
+    const exceptionsByDate = new Map(
+      (item.exceptions || []).map((exception) => [exception.occurrenceDate, exception])
+    );
+    const hasVisibleException = (item.exceptions || []).some(
+      (exception) =>
+        !exception.cancelled &&
+        exception.date >= range.start &&
+        exception.date <= range.end
+    );
+    if (
+      item.endDate &&
+      asDate(item.endDate) < visibleStart &&
+      !hasVisibleException
+    ) {
+      return [];
+    }
 
-    return eachDayOfInterval({ start: visibleStart, end: endDate })
-      .filter((date) => occursOn(item, date, itemStart))
-      .map((date) => {
-        const occurrenceDate = format(date, "yyyy-MM-dd");
-        return {
-          ...item,
-          occurrenceDate,
-          occurrenceKey: `${item._id}-${occurrenceDate}`,
-          done: (item.doneDates || []).includes(occurrenceDate),
-        };
-      });
+    const recurringOccurrences = visibleStart > endDate
+      ? []
+      : eachDayOfInterval({ start: visibleStart, end: endDate })
+        .filter((date) => occursOn(item, date, itemStart))
+        .map((date) => {
+          const occurrenceDate = format(date, "yyyy-MM-dd");
+          return {
+            ...item,
+            occurrenceDate,
+            sourceOccurrenceDate: occurrenceDate,
+            occurrenceKey: `${item._id}-${occurrenceDate}`,
+            done: (item.doneDates || []).includes(occurrenceDate),
+          };
+        });
+
+    const visibleExceptions = (item.exceptions || []).flatMap((exception) => {
+      const sourceDate = exception.occurrenceDate;
+      if (
+        exception.cancelled ||
+        !occursOn(item, sourceDate, itemStart) ||
+        exception.date < range.start ||
+        exception.date > range.end
+      ) {
+        return [];
+      }
+      return [{
+        ...item,
+        ...exception,
+        date: exception.date,
+        occurrenceDate: exception.date,
+        sourceOccurrenceDate: sourceDate,
+        occurrenceKey: `${item._id}-${sourceDate}`,
+        done: (item.doneDates || []).includes(sourceDate),
+        seriesItem: item,
+      }];
+    });
+
+    return [
+      ...recurringOccurrences.filter(
+        (occurrence) => !exceptionsByDate.has(occurrence.sourceOccurrenceDate)
+      ),
+      ...visibleExceptions,
+    ];
   });
 }
 

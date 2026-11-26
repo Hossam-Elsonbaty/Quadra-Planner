@@ -45,4 +45,43 @@ describe("ItemForm repeat choice", () => {
     expect(await screen.findByText("End time must be after the start time.")).toBeInTheDocument();
     await waitFor(() => expect(onSave).not.toHaveBeenCalled());
   });
+
+  it("saves a recurring occurrence without changing the series repeat settings", async () => {
+    const onSave = vi.fn();
+    render(
+      <ItemForm
+        open
+        item={{
+          _id: "item-1",
+          title: "Weekly class",
+          type: "type-1",
+          date: "2027-03-15",
+          occurrenceDate: "2027-03-22",
+          sourceOccurrenceDate: "2027-03-22",
+          repeat: "weekly",
+          startTime: "09:00",
+        }}
+        types={[{ _id: "type-1", name: "Class", color: "#123456" }]}
+        onCancel={vi.fn()}
+        onSave={onSave}
+        onDelete={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText("This occurrence only"));
+    expect(screen.queryByLabelText("Every week")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Date")).toHaveValue("2027-03-22");
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Changed class" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save item" }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+    const [values, scope] = onSave.mock.calls[0];
+    expect(scope).toBe("occurrence");
+    expect(values).toMatchObject({
+      title: "Changed class",
+      date: "2027-03-22",
+      startTime: "09:00",
+    });
+    expect(values).not.toHaveProperty("repeat");
+  });
 });

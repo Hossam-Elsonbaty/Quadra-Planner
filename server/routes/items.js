@@ -13,6 +13,10 @@ const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(
   (value) => parseDateOnly(value) !== null,
   "Date must be a valid YYYY-MM-DD date"
 );
+const occurrenceParamsSchema = z.object({
+  id: z.string().regex(/^[a-f\d]{24}$/i),
+  date: dateSchema,
+});
 const itemFieldsSchema = z.object({
   title: z.string().trim().min(1).max(200),
   type: z.string().regex(/^[a-f\d]{24}$/i),
@@ -43,6 +47,22 @@ const updateItemSchema = itemFieldsSchema.partial().refine(
   (value) => Object.keys(value).length > 0,
   "At least one field is required"
 );
+const occurrenceItemSchema = itemFieldsSchema.pick({
+  title: true,
+  type: true,
+  date: true,
+  startTime: true,
+  endTime: true,
+  notes: true,
+}).superRefine((item, context) => {
+  if (item.endTime && item.endTime <= item.startTime) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["endTime"],
+      message: "End time must be after start time",
+    });
+  }
+});
 const querySchema = z.object({
   from: dateSchema.optional(),
   to: dateSchema.optional(),
@@ -81,6 +101,14 @@ router.get("/", validate(querySchema, "query"), async (req, res, next) => {
             { endDate: { $gte: parseDateOnly(from) } },
           ],
         },
+        {
+          exceptions: {
+            $elemMatch: {
+              date: { $gte: from, $lte: to },
+              cancelled: { $ne: true },
+            },
+          },
+        },
       ];
     } else if (from) {
       filter.$or = [
@@ -89,9 +117,21 @@ router.get("/", validate(querySchema, "query"), async (req, res, next) => {
           repeat: { $ne: "none" },
           $or: [{ endDate: { $exists: false } }, { endDate: null }, { endDate: { $gte: parseDateOnly(from) } }],
         },
+        {
+          exceptions: {
+            $elemMatch: { date: { $gte: from }, cancelled: { $ne: true } },
+          },
+        },
       ];
     } else if (to) {
-      filter.date = { $lte: parseDateOnly(to) };
+      filter.$or = [
+        { date: { $lte: parseDateOnly(to) } },
+        {
+          exceptions: {
+            $elemMatch: { date: { $lte: to }, cancelled: { $ne: true } },
+          },
+        },
+      ];
     }
     const items = await Item.find(filter).sort({ date: 1, startTime: 1 }).lean();
     res.json({ items });
@@ -140,9 +180,95 @@ router.put(
       if (!(await validateOwnedType(checked.data.type, req.user._id))) {
         return res.status(400).json({ message: "Type not found" });
       }
+      const updatedPattern = { ...dateFields(checked.data), exceptions: [] };
+      item.exceptions = item.exceptions.filter((exception) =>
+        isOccurrenceOnDate(updatedPattern, exception.occurrenceDate)
+      );
       Object.assign(item, dateFields(checked.data), { type: checked.data.type });
       await item.save();
       res.json({ item });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.put(
+  "/:id/occurrences/:date",
+  validate(occurrenceParamsSchema, "params"),
+  validate(occurrenceItemSchema),
+  async (req, res, next) => {
+    try {
+      const item = await Item.findOne({ _id: req.params.id, owner: req.user._id });
+      const occurrenceDate = req.params.date;
+      if (!item || item.repeat === "none" || !isOccurrenceOnDate(item, occurrenceDate)) {
+        return res.status(404).json({ message: "Item occurrence not found" });
+      }
+
+      const exceptionCollision = item.exceptions.some(
+        (exception) =>
+          exception.occurrenceDate !== occurrenceDate &&
+          !exception.cancelled &&
+          exception.date === req.body.date
+      );
+      const baseOccurrenceCollision =
+        req.body.date !== occurrenceDate &&
+        isOccurrenceOnDate(item, req.body.date) &&
+        !item.exceptions.some(
+          (exception) =>
+            exception.occurrenceDate === req.body.date &&
+            (exception.cancelled || exception.date !== req.body.date)
+        );
+      if (
+        exceptionCollision ||
+        baseOccurrenceCollision
+      ) {
+        return res.status(400).json({ message: "Another occurrence already exists on that date" });
+      }
+      if (!(await validateOwnedType(req.body.type, req.user._id))) {
+        return res.status(400).json({ message: "Type not found" });
+      }
+
+      item.exceptions = item.exceptions.filter(
+        (exception) => exception.occurrenceDate !== occurrenceDate
+      );
+      item.exceptions.push({
+        ...req.body,
+        occurrenceDate,
+        cancelled: false,
+      });
+      await item.save();
+      res.json({ item });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.delete(
+  "/:id/occurrences/:date",
+  validate(occurrenceParamsSchema, "params"),
+  async (req, res, next) => {
+    try {
+      const item = await Item.findOne({ _id: req.params.id, owner: req.user._id });
+      const occurrenceDate = req.params.date;
+      if (!item || item.repeat === "none" || !isOccurrenceOnDate(item, occurrenceDate)) {
+        return res.status(404).json({ message: "Item occurrence not found" });
+      }
+
+      const existing = item.exceptions.find(
+        (exception) => exception.occurrenceDate === occurrenceDate
+      );
+      item.exceptions = item.exceptions.filter(
+        (exception) => exception.occurrenceDate !== occurrenceDate
+      );
+      item.exceptions.push({
+        occurrenceDate,
+        date: existing?.date || occurrenceDate,
+        cancelled: true,
+      });
+      await item.save();
+      res.json({ message: "Item occurrence deleted" });
     } catch (error) {
       next(error);
     }
