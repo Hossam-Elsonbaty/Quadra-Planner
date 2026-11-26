@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button, Empty, Input, Modal, Select, Spin, Typography } from "antd";
 import { format, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { itemsApi, typesApi } from "../api.js";
 import ItemCard from "../components/ItemCard.jsx";
@@ -18,6 +18,7 @@ import {
   shiftDate,
   todayString,
 } from "../utils/dates.js";
+import { createIcsCalendar } from "../utils/calendarExport.js";
 import { filterOccurrences } from "../utils/itemFilters.js";
 
 const { Title, Text } = Typography;
@@ -185,6 +186,23 @@ export default function Planner() {
     setSelectedDay(day);
   }
 
+  function exportCalendar() {
+    try {
+      const content = createIcsCalendar(filteredOccurrences, typesById);
+      const blob = new Blob([content], { type: "text/calendar;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `weekly-planner-${range.start}-to-${range.end}.ics`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (error) {
+      toast.error(error.message || "Could not export this calendar.");
+    }
+  }
+
   const title = periodTitle(view, range);
 
   return (
@@ -201,6 +219,13 @@ export default function Planner() {
             <Button aria-label="Next period" icon={<ChevronRight size={17} />} onClick={() => move(1)} />
           </div>
           <ViewSwitcher view={view} onChange={setView} />
+          <Button
+            icon={<Download size={17} />}
+            onClick={exportCalendar}
+            disabled={loading || !filteredOccurrences.length}
+          >
+            Export .ics
+          </Button>
           <Button type="primary" icon={<Plus size={17} />} onClick={() => openNewItem()}>
             Add item
           </Button>

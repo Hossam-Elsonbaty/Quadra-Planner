@@ -150,6 +150,7 @@ Every item has:
 - Previous, Next, and Today buttons work for the current view (week by week, month by month, year by year). Show the current period as a title, for example "March 2027".
 - Clicking an item opens edit. A small checkbox marks the occurrence done.
 - Search item titles and combine type and completion filters. Filters apply to the currently displayed period and all calendar views.
+- Export the displayed period as an `.ics` file; active search, type, and completion filters determine which occurrences are included.
 
 ### 4.5 Add and edit form
 
