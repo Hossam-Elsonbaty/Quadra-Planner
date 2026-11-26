@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Button, Empty, Modal, Spin, Typography } from "antd";
+import { Button, Empty, Input, Modal, Select, Spin, Typography } from "antd";
 import { format, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { itemsApi, typesApi } from "../api.js";
 import ItemCard from "../components/ItemCard.jsx";
@@ -18,6 +18,7 @@ import {
   shiftDate,
   todayString,
 } from "../utils/dates.js";
+import { filterOccurrences } from "../utils/itemFilters.js";
 
 const { Title, Text } = Typography;
 
@@ -47,11 +48,20 @@ export default function Planner() {
   const [activeItem, setActiveItem] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [completionFilter, setCompletionFilter] = useState("all");
   const range = rangeFor(view, date);
   const typesById = Object.fromEntries(types.map((type) => [type._id, type]));
   const occurrences = expandOccurrences(items, range);
+  const filteredOccurrences = filterOccurrences(occurrences, {
+    query: searchText,
+    typeId: typeFilter,
+    completion: completionFilter,
+  });
+  const hasActiveFilters = Boolean(searchText.trim()) || typeFilter !== "all" || completionFilter !== "all";
   const selectedDayItems = selectedDay
-    ? occurrences
+    ? filteredOccurrences
       .filter((item) => item.occurrenceDate === selectedDay)
       .sort((a, b) => a.startTime.localeCompare(b.startTime))
     : [];
@@ -197,12 +207,59 @@ export default function Planner() {
         </div>
       </div>
 
+      <div className="planner-filters">
+        <Input
+          aria-label="Search items"
+          placeholder="Search titles"
+          prefix={<Search size={16} />}
+          allowClear
+          value={searchText}
+          onChange={(event) => setSearchText(event.target.value)}
+        />
+        <Select
+          aria-label="Filter by type"
+          value={typeFilter}
+          onChange={setTypeFilter}
+          options={[
+            { value: "all", label: "All types" },
+            ...types.map((type) => ({ value: type._id, label: type.name })),
+          ]}
+        />
+        <Select
+          aria-label="Filter by completion"
+          value={completionFilter}
+          onChange={setCompletionFilter}
+          options={[
+            { value: "all", label: "All items" },
+            { value: "open", label: "Not done" },
+            { value: "done", label: "Done" },
+          ]}
+        />
+        <Text className="planner-filter-status muted-copy" aria-live="polite">
+          {hasActiveFilters
+            ? `${filteredOccurrences.length} of ${occurrences.length} items`
+            : `${occurrences.length} items`}
+        </Text>
+        {hasActiveFilters && (
+          <Button
+            type="link"
+            onClick={() => {
+              setSearchText("");
+              setTypeFilter("all");
+              setCompletionFilter("all");
+            }}
+          >
+            Clear filters
+          </Button>
+        )}
+      </div>
+
       {loading ? (
         <div className="planner-loading"><Spin size="large" /></div>
       ) : view === "week" ? (
         <WeekView
           range={range}
-          occurrences={occurrences}
+          occurrences={filteredOccurrences}
           typesById={typesById}
           onAdd={openNewItem}
           onEdit={openItem}
@@ -211,7 +268,7 @@ export default function Planner() {
       ) : view === "month" ? (
         <MonthView
           range={range}
-          occurrences={occurrences}
+          occurrences={filteredOccurrences}
           typesById={typesById}
           onAdd={openNewItem}
           onEdit={openItem}
@@ -221,7 +278,7 @@ export default function Planner() {
       ) : (
         <YearView
           year={parseISO(range.start).getFullYear()}
-          occurrences={occurrences}
+          occurrences={filteredOccurrences}
           onOpenDay={openDay}
           onOpenMonth={openMonth}
         />
@@ -260,7 +317,13 @@ export default function Planner() {
             ))}
           </div>
         ) : (
-          <Empty description="Nothing planned for this day." />
+          <Empty
+            description={
+              hasActiveFilters
+                ? "No items on this day match your filters."
+                : "Nothing planned for this day."
+            }
+          />
         )}
       </Modal>
     </section>

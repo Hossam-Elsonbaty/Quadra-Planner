@@ -180,6 +180,26 @@ a:hover {
   gap: 10px;
 }
 
+.planner-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: -8px 0 20px;
+}
+
+.planner-filters .ant-input-affix-wrapper {
+  width: min(280px, 100%);
+}
+
+.planner-filters .ant-select {
+  width: 160px;
+}
+
+.planner-filter-status {
+  margin-left: auto;
+}
+
 .period-controls {
   gap: 5px;
 }
@@ -789,6 +809,19 @@ a:hover {
   .planner-controls {
     width: 100%;
     flex-wrap: wrap;
+  }
+
+  .planner-filters .ant-input-affix-wrapper {
+    width: 100%;
+  }
+
+  .planner-filters .ant-select {
+    flex: 1 1 140px;
+    width: auto;
+  }
+
+  .planner-filter-status {
+    margin-left: 0;
   }
 
   .planner-controls > .ant-btn-primary {

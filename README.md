@@ -149,6 +149,7 @@ Every item has:
 - **Year view:** twelve small month calendars. Days that have items show a small dot. Clicking a day opens its list, and clicking a month name opens that month in Month view.
 - Previous, Next, and Today buttons work for the current view (week by week, month by month, year by year). Show the current period as a title, for example "March 2027".
 - Clicking an item opens edit. A small checkbox marks the occurrence done.
+- Search item titles and combine type and completion filters. Filters apply to the currently displayed period and all calendar views.
 
 ### 4.5 Add and edit form
 
