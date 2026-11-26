@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { format, isValid, parseISO } from "date-fns";
 import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 
 function validDate(value) {
@@ -27,6 +28,7 @@ const itemSchema = z.object({
     (value) => !value || validDate(value),
     "Choose a valid end date."
   ),
+  reminderMinutesBefore: z.number().int().min(1).max(10080).optional(),
   notes: z.string().max(5000).optional(),
 }).superRefine((item, context) => {
   if (item.endTime && item.startTime && item.endTime <= item.startTime) {
@@ -52,6 +54,9 @@ function toInputDate(value) {
 
 export default function ItemForm({ open, item, types, onCancel, onSave, onDelete, saving }) {
   const [editScope, setEditScope] = useState("series");
+  const [notificationPermission, setNotificationPermission] = useState(() =>
+    typeof Notification === "undefined" ? "unsupported" : Notification.permission
+  );
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm({
     resolver: zodResolver(itemSchema),
     defaultValues: {
@@ -62,10 +67,12 @@ export default function ItemForm({ open, item, types, onCancel, onSave, onDelete
       endTime: "",
       repeat: undefined,
       endDate: "",
+      reminderMinutesBefore: undefined,
       notes: "",
     },
   });
   const repeat = useWatch({ control, name: "repeat" });
+  const reminderMinutesBefore = useWatch({ control, name: "reminderMinutesBefore" });
   const isRecurringItem = Boolean(item?._id && item.repeat !== "none");
   const isOccurrenceEdit = isRecurringItem && editScope === "occurrence";
 
@@ -85,9 +92,39 @@ export default function ItemForm({ open, item, types, onCancel, onSave, onDelete
       endTime: source?.endTime || "",
       repeat: source?.repeat || undefined,
       endDate: toInputDate(source?.endDate),
+      reminderMinutesBefore: source?.reminderMinutesBefore,
       notes: source?.notes || "",
     });
   }, [item, open, editScope, isOccurrenceEdit, reset]);
+
+  async function enableNotifications() {
+    if (typeof Notification === "undefined") {
+      toast.error("This browser does not support notifications.");
+      return;
+    }
+    if (Notification.permission === "denied") {
+      setNotificationPermission("denied");
+      return;
+    }
+    if (Notification.permission === "granted") {
+      setNotificationPermission("granted");
+      window.dispatchEvent(new Event("planner-items-changed"));
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      if (permission === "granted") {
+        toast.success("Browser notifications enabled.");
+        window.dispatchEvent(new Event("planner-items-changed"));
+      } else {
+        toast.error("Allow notifications in your browser to receive reminders.");
+      }
+    } catch (error) {
+      toast.error(error.message || "Could not request notification permission.");
+    }
+  }
 
   function submit(values) {
     const payload = {
@@ -98,6 +135,8 @@ export default function ItemForm({ open, item, types, onCancel, onSave, onDelete
     };
     if (isOccurrenceEdit) {
       delete payload.repeat;
+      delete payload.endDate;
+      delete payload.reminderMinutesBefore;
     }
     onSave(payload, isOccurrenceEdit ? "occurrence" : "series");
   }
@@ -163,7 +202,9 @@ export default function ItemForm({ open, item, types, onCancel, onSave, onDelete
               {errors.endTime && <span className="field-error">{errors.endTime.message}</span>}
 
               {isOccurrenceEdit ? (
-                <p className="repeat-hint">The repeat schedule is unchanged for this occurrence.</p>
+                <p className="repeat-hint">
+                  The repeat schedule and reminder are managed for the entire series.
+                </p>
               ) : (
                 <>
                   <fieldset className="repeat-fieldset">
@@ -193,6 +234,46 @@ export default function ItemForm({ open, item, types, onCancel, onSave, onDelete
                     </div>
                   )}
                 </>
+              )}
+
+              {!isOccurrenceEdit && (
+                <div>
+                  <label htmlFor="item-reminder">
+                    Reminder <span className="optional-label">Optional</span>
+                  </label>
+                  <div className="field-row">
+                    <input
+                      id="item-reminder"
+                      type="number"
+                      min={1}
+                      max={10080}
+                      step={1}
+                      placeholder="Off"
+                      className="native-input"
+                      {...register("reminderMinutesBefore", {
+                        setValueAs: (value) => value === "" ? undefined : Number(value),
+                      })}
+                    />
+                    <span className="muted-copy">minutes before (up to 7 days)</span>
+                  </div>
+                  {errors.reminderMinutesBefore && (
+                    <span className="field-error">Enter a reminder from 1 to 10,080 minutes.</span>
+                  )}
+                  <p className="repeat-hint">
+                    Browser notifications require permission, and the planner must be open.
+                  </p>
+                  {reminderMinutesBefore && notificationPermission !== "granted" && (
+                    <Button
+                      size="small"
+                      disabled={notificationPermission === "denied"}
+                      onClick={enableNotifications}
+                    >
+                      {notificationPermission === "denied"
+                        ? "Notifications blocked in browser settings"
+                        : "Enable browser notifications"}
+                    </Button>
+                  )}
+                </div>
               )}
 
               <label htmlFor="item-notes">Notes <span className="optional-label">Optional</span></label>

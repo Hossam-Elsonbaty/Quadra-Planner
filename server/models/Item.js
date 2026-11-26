@@ -32,6 +32,12 @@ const itemSchema = new mongoose.Schema(
       required: true,
     },
     endDate: { type: Date },
+    reminderMinutesBefore: {
+      type: Number,
+      min: 1,
+      max: 10080,
+      validate: Number.isInteger,
+    },
     doneDates: { type: [String], default: [] },
     exceptions: { type: [occurrenceExceptionSchema], default: [] },
     owner: {

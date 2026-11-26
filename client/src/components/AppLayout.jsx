@@ -2,6 +2,7 @@ import { Button, Layout } from "antd";
 import { CalendarDays, LogOut, Settings2, Shield } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import ReminderNotifications from "./ReminderNotifications.jsx";
 
 const { Header, Content } = Layout;
 
@@ -16,6 +17,7 @@ export default function AppLayout() {
 
   return (
     <Layout className="app-shell">
+      <ReminderNotifications />
       <Header className="topbar">
         <NavLink className="brand" to="/" aria-label="Weekly Planner home">
           <CalendarDays size={21} strokeWidth={1.8} />

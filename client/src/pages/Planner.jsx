@@ -101,6 +101,9 @@ export default function Planner() {
   async function saveItem(values, scope) {
     setSaving(true);
     try {
+      const reminderEnabled = Boolean(values.reminderMinutesBefore);
+      const canNotify =
+        typeof Notification !== "undefined" && Notification.permission === "granted";
       if (activeItem?._id && scope === "occurrence") {
         await itemsApi.updateOccurrence(
           activeItem._id,
@@ -112,7 +115,12 @@ export default function Planner() {
       } else {
         await itemsApi.create(values);
       }
-      toast.success(activeItem?._id ? "Item updated" : "Item added");
+      window.dispatchEvent(new Event("planner-items-changed"));
+      if (reminderEnabled && !canNotify) {
+        toast.warning("Saved, but browser notifications are not enabled for this site.");
+      } else {
+        toast.success(activeItem?._id ? "Item updated" : "Item added");
+      }
       setFormOpen(false);
       await reloadItems();
     } catch (error) {
@@ -132,6 +140,7 @@ export default function Planner() {
       } else {
         await itemsApi.remove(item._id);
       }
+      window.dispatchEvent(new Event("planner-items-changed"));
       toast.success(scope === "occurrence" ? "Occurrence deleted" : "Item deleted");
       setFormOpen(false);
       await reloadItems();
@@ -146,6 +155,7 @@ export default function Planner() {
         item._id,
         item.sourceOccurrenceDate || item.occurrenceDate
       );
+      window.dispatchEvent(new Event("planner-items-changed"));
       await reloadItems();
     } catch (error) {
       toast.error(error.response?.data?.message || "Could not update this item.");

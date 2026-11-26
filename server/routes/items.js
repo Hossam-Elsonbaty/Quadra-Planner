@@ -26,6 +26,7 @@ const itemFieldsSchema = z.object({
   notes: z.string().trim().max(5000).optional(),
   repeat: z.enum(["none", "weekly", "monthly", "yearly"]),
   endDate: dateSchema.optional(),
+  reminderMinutesBefore: z.number().int().min(1).max(10080).optional(),
 });
 const itemSchema = itemFieldsSchema.superRefine((item, context) => {
   if (item.endTime && item.endTime <= item.startTime) {

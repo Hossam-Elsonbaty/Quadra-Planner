@@ -27,6 +27,7 @@ describe("items", () => {
       date: "2027-03-15",
       startTime: "09:00",
       repeat: "weekly",
+      reminderMinutesBefore: 30,
     };
     const missingRepeat = await request(app)
       .post("/api/items")
@@ -39,6 +40,13 @@ describe("items", () => {
       .set("Authorization", `Bearer ${owner.token}`)
       .send(payload);
     expect(created.status).toBe(201);
+    expect(created.body.item.reminderMinutesBefore).toBe(30);
+
+    const invalidReminder = await request(app)
+      .post("/api/items")
+      .set("Authorization", `Bearer ${owner.token}`)
+      .send({ ...payload, reminderMinutesBefore: 10081 });
+    expect(invalidReminder.status).toBe(400);
 
     const list = await request(app)
       .get("/api/items?from=2027-03-01&to=2027-03-31")

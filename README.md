@@ -126,6 +126,7 @@ Every item has:
 - start time
 - optional end time
 - optional notes
+- optional reminder from 1 to 10,080 minutes before the item
 - repeat mode: `none` (this date only), `weekly`, `monthly`, or `yearly`
 - for repeating items: an optional end date (if empty, the item repeats until deleted)
 - done flag (mainly for tasks)
@@ -138,6 +139,7 @@ Every item has:
 - **Every year:** the item repeats on the same day and month each year. A start date of February 29 repeats on February 28 in non-leap years.
 - A repeating item never appears before its start date. It may have an optional end date.
 - Occurrences are calculated on the fly for the visible week, month, or year. Do not store one database row per occurrence.
+- Reminders apply to the whole series and use browser notifications. The user must grant notification permission and keep the planner open for reminders to fire.
 
 ### 4.4 Calendar views (week, month, year)
 
